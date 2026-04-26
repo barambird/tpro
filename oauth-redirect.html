@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>TPRO - 인증 처리 중</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; text-align: center; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #f4f4f5; border-top-color: #E31937; border-radius: 50%; animation: spin 1s linear infinite; margin: 30px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err { background: #fee; padding: 16px; border-radius: 8px; color: #c00; word-break: break-all; }
+    a.btn { display: inline-block; background: #E31937; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>🚗 TPRO 인증 처리 중...</h1>
+  <div class="spinner" id="spinner"></div>
+  <p id="status">Tesla로부터 인증 코드를 받았습니다. GAS로 전달 중...</p>
+  <div id="result"></div>
+
+  <script>
+    // ⚠️ 본인의 GAS /exec URL로 변경하세요
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycby6pbc4bonjsh9i6vhV9561slwziAE_ijVmjjJ7fZL3eOmiqaX6g081lxoFCugRu0YsvQ/exec';
+
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error');
+
+    function showError(msg) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('status').innerHTML = '<div class="err">❌ ' + msg + '</div>';
+    }
+
+    function showSuccess() {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('status').innerHTML = '<h2 style="color:#10b981">✅ 인증 완료!</h2><p>이 창을 닫고 앱으로 돌아가세요.</p>';
+    }
+
+    if (error) {
+      showError('OAuth 에러: ' + error);
+    } else if (!code) {
+      showError('인증 코드가 없습니다.');
+    } else {
+      // GAS에 code 전달하여 토큰 발급
+      const url = GAS_URL + '?path=oauth/callback&code=' + encodeURIComponent(code) + '&state=' + encodeURIComponent(state || '');
+      
+      fetch(url, { method: 'GET' })
+        .then(r => r.text())
+        .then(text => {
+          if (text.includes('인증 완료') || text.includes('access_token')) {
+            showSuccess();
+          } else if (text.includes('실패') || text.includes('error')) {
+            showError('GAS 응답: ' + text.substring(0, 500));
+          } else {
+            // GAS가 HTML을 반환하므로 일단 성공으로 처리
+            showSuccess();
+          }
+        })
+        .catch(err => showError('GAS 호출 실패: ' + err.message));
+    }
+  </script>
+</body>
+</html>
